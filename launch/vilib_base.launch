@@ -1,0 +1,11 @@
+<launch>
+  <!--arg name="drive_speed" default="0.25" /-->
+  
+  <node pkg="vilib_ros" type="vilib_ros_node" name="vilib_base">
+    <!--param name="dev" value="$(arg joy_dev)" /-->
+    <!--param name="deadzone" value="0.3" /-->
+<remap from="img_in" to="cam_L/image_raw" />
+  </node>
+
+
+</launch>
