@@ -11,14 +11,16 @@ set(CUDAToolkit_ROOT ${CUDA_ROOT_ENV})
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 
-FIND_PACKAGE(OpenCV 3 REQUIRED)
+FIND_PACKAGE(OpenCV 3.4 REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   cv_bridge
   roscpp
   std_msgs
+  geometry_msgs
   image_transport
+  message_generation
 )
 
 # Add vilib lib
@@ -60,11 +62,11 @@ find_library( vilib libvilib )
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
+ add_message_files(
+   FILES
+   keypt.msg
 #   Message2.msg
-# )
+ )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -81,10 +83,11 @@ find_library( vilib libvilib )
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   sensor_msgs#   std_msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+geometry_msgs
+   sensor_msgs#   std_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -119,7 +122,7 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES vilib_ros
 #  CATKIN_DEPENDS roscpp rospy sensor_msgs std_msgs
-  CATKIN_DEPENDS cv_bridge roscpp rospy std_msgs sensor_msgs image_transport
+  CATKIN_DEPENDS cv_bridge roscpp rospy std_msgs sensor_msgs image_transport message_runtime
 #  DEPENDS system_lib
 )
 
