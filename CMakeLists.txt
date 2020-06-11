@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   image_transport
   message_generation
+dynamic_reconfigure
 )
 
 # Add vilib lib
@@ -104,10 +105,10 @@ geometry_msgs
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
+generate_dynamic_reconfigure_options(
+   cfg/fast_param.cfg
 #   cfg/DynReconf2.cfg
-# )
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -164,7 +165,7 @@ add_executable(${PROJECT_NAME}_node src/vilib_ros_node.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} vilib)
+add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} vilib ${PROJECT_NAME}_gencfg)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
