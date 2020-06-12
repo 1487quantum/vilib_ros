@@ -151,8 +151,9 @@ void dCircle(cv_bridge::CvImagePtr imgpt, int x, int y)
 
 //Draw rect (bounding area)
 void dRect(cv_bridge::CvImagePtr imgpt, int x, int y, int w, int h){
+int thickness = 2;
 cv::Rect rect(x, y, w, h);
-cv::rectangle(imgpt->image, rect, cv::Scalar(0, 255, 0));
+cv::rectangle(imgpt->image, rect, cv::Scalar(0, 255, 0), thickness);
 }
 
 //Draw text & detected features on img
