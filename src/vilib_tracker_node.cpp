@@ -1,6 +1,6 @@
 /*
  * ROS Node wrapper for for CUDA Visual Library by RPG. 
- * vilib_ros_node.cpp
+ * vilib_tracker_node.cpp
  *
  *  __ _  _   ___ ______ ____                    _                   
  * /_ | || | / _ \____  / __ \                  | |                  
@@ -20,10 +20,12 @@
 #include <vector>
 #include <unordered_map>
 #include <thread>
+#include <future>
 
-#include <opencv2/highgui.hpp>
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/features2d/features2d.hpp>
 
 #include <ros/ros.h>
 #include <geometry_msgs/Point.h>
@@ -41,81 +43,83 @@
 
 using namespace vilib;
 
-// Frame preprocessing
-int PYRAMID_LEVELS{ 6 };
-constexpr int PYRAMID_MIN_LEVEL{ 0 };
-int PYRAMID_MAX_LEVEL{ PYRAMID_LEVELS };
+// Frame options
+#define FRAME_IMAGE_PYRAMID_LEVELS 5
+// Feature detection options
+#define FEATURE_DETECTOR_CELL_SIZE_WIDTH 32
+#define FEATURE_DETECTOR_CELL_SIZE_HEIGHT 32
+#define FEATURE_DETECTOR_MIN_LEVEL 0
+#define FEATURE_DETECTOR_MAX_LEVEL 2
+#define FEATURE_DETECTOR_HORIZONTAL_BORDER 8
+#define FEATURE_DETECTOR_VERTICAL_BORDER 8
 
-// FAST detector parameters
-float FAST_EPSILON{ 60.0f }; //Threshold level
-int FAST_MIN_ARC_LENGTH{ 10 };
-// Remark: the Rosten CPU version only works with
-//         SUM_OF_ABS_DIFF_ON_ARC and MAX_THRESHOLD
-vilib::fast_score FAST_SCORE{ SUM_OF_ABS_DIFF_ON_ARC };
-
-// NMS parameters
-int HORIZONTAL_BORDER{ 0 }; //Horizontal image detection padding (Act as clip off for detection)
-int VERTICAL_BORDER{ 0 }; //Vertical image detection padding
-int CELL_SIZE_WIDTH{ 16 };
-int CELL_SIZE_HEIGHT{ 16 };
+// FAST parameters
+#define FEATURE_DETECTOR_FAST_EPISLON 30.f
+#define FEATURE_DETECTOR_FAST_ARC_LENGTH 10
+#define FEATURE_DETECTOR_FAST_SCORE SUM_OF_ABS_DIFF_ON_ARC
 
 // Pub/Sub
 ros::Publisher ptsPub;
 image_transport::Publisher imgPub;
 image_transport::Subscriber imgSub;
 
-// === FEATURE DETECTOR ===
-std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
-//FASt corner detector fx, return all the points detected
-std::unordered_map<int, int> fDetector(cv_bridge::CvImagePtr imgpt, int image_width_, int image_height_)
+//Tracker
+std::size_t total_tracked_ftr_cnt, total_detected_ftr_cnt;
+
+
+// === FEATURE TRACKER ===
+
+//Feature Tracker fx, return all the points detected
+std::shared_ptr<Frame> iTracker(cv_bridge::CvImagePtr imgpt, int image_width_, int image_height_)
 {
-    //For pyramid storage
+    std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
+std::shared_ptr<vilib::FeatureTrackerBase> tracker_gpu_;
+
+     // Instantiation of the trackers
+    vilib::FeatureTrackerOptions feature_tracker_options;
+    feature_tracker_options.reset_before_detection = false;
+    feature_tracker_options.use_best_n_features = 50;
+    feature_tracker_options.min_tracks_to_detect_new_features = 0.3 * feature_tracker_options.use_best_n_features;
+    feature_tracker_options.affine_est_gain = false;
+    feature_tracker_options.affine_est_offset = false;
+
+    // Create feature detector & tracker for the GPU
     detector_gpu_.reset(new FASTGPU(image_width_,
         image_height_,
-        CELL_SIZE_WIDTH,
-        CELL_SIZE_HEIGHT,
-        PYRAMID_MIN_LEVEL,
-        PYRAMID_MAX_LEVEL,
-        HORIZONTAL_BORDER,
-        VERTICAL_BORDER,
-        FAST_EPSILON,
-        FAST_MIN_ARC_LENGTH,
-        FAST_SCORE));
+        FEATURE_DETECTOR_CELL_SIZE_WIDTH,
+        FEATURE_DETECTOR_CELL_SIZE_HEIGHT,
+        FEATURE_DETECTOR_MIN_LEVEL,
+        FEATURE_DETECTOR_MAX_LEVEL,
+        FEATURE_DETECTOR_HORIZONTAL_BORDER,
+        FEATURE_DETECTOR_VERTICAL_BORDER,
+        FEATURE_DETECTOR_FAST_EPISLON,
+        FEATURE_DETECTOR_FAST_ARC_LENGTH,
+        FEATURE_DETECTOR_FAST_SCORE));
+    tracker_gpu_.reset(new FeatureTrackerGPU(feature_tracker_options, 1));
+    tracker_gpu_->setDetectorGPU(detector_gpu_, 0);
 
     // Initialize the pyramid pool
-    PyramidPool::init(1,
+    vilib::PyramidPool::init(1,
         image_width_,
         image_height_,
         1, // grayscale
-        PYRAMID_LEVELS,
+        FRAME_IMAGE_PYRAMID_LEVELS,
         IMAGE_PYRAMID_MEMORY_TYPE);
 
-    std::shared_ptr<Frame> frame0(new Frame(imgpt->image, 0, PYRAMID_LEVELS)); // Create a Frame (image upload, pyramid)
-    detector_gpu_->reset(); // Reset detector's grid (Note: this step could be actually avoided with custom processing)
-    detector_gpu_->detect(frame0->pyramid_); // Do the detection
+    // Create Frame
+    std::shared_ptr<vilib::Frame> frame = std::make_shared<vilib::Frame>(
+        img,
+        0,
+        vilib::FRAME_IMAGE_PYRAMID_LEVELS);
+    // Create FrameBundle
+    std::vector<std::shared_ptr<vilib::Frame> > framelist;
+    framelist.push_back(frame);
+    std::shared_ptr<vilib::FrameBundle> framebundle(new vilib::FrameBundle(framelist));
+    tracker_gpu_->track(framebundle,
+        total_tracked_ftr_cnt,
+        total_detected_ftr_cnt);
 
-    // Display results
-    auto& points_gpu{ detector_gpu_->getPoints() };
-    auto& points_gpu_grid{ detector_gpu_->getGrid() };
-
-    std::unordered_map<int, int> points_combined;
-    points_combined.reserve(points_gpu.size());
-
-    int qqq{ 0 }; //Index tracker
-    for (auto it = points_gpu.begin(); it != points_gpu.end(); ++it) {
-        int key = ((int)it->x_) | (((int)it->y_) << 16);
-        if (key) {
-            points_combined.emplace(key, 3);
-            //ROS_WARN_STREAM("#" << qqq << " , key: " << key);
-            //ROS_WARN_STREAM("x: " << it->x_ << " , y: " << it->y_);
-        }
-        ++qqq;
-    }
-
-    //ROS_WARN_STREAM("All points: " << points_gpu.size() << ", Valid points: " << points_combined.size() << ", Epsilon: " << FAST_EPSILON);
-    PyramidPool::deinit(); // Deinitialize the pyramid pool (for consecutive frames)
-
-    return points_combined;
+    return frame;
 }
 
 // === GRAPHICS ===
@@ -146,11 +150,10 @@ void dCircle(cv_bridge::CvImagePtr imgpt, int x, int y)
 }
 
 //Draw rect (bounding area)
-void dRect(cv_bridge::CvImagePtr imgpt, int x, int y, int w, int h)
-{
-    int thickness = 2;
-    cv::Rect rect(x, y, w, h);
-    cv::rectangle(imgpt->image, rect, cv::Scalar(0, 255, 0), thickness);
+void dRect(cv_bridge::CvImagePtr imgpt, int x, int y, int w, int h){
+int thickness = 2;
+cv::Rect rect(x, y, w, h);
+cv::rectangle(imgpt->image, rect, cv::Scalar(0, 255, 0), thickness);
 }
 
 //Draw text & detected features on img
@@ -161,13 +164,14 @@ void processImg(cv_bridge::CvImagePtr img, std::unordered_map<int, int> pts, int
     pt_msg.stamp = ros::Time::now();
     pt_msg.size = pts.size();
 
-    //Draw detctor bounding area
-    dRect(
-        img,
-        image_width_ / 2 - (image_width_ - 2 * HORIZONTAL_BORDER) / 2,
-        image_height_ / 2 - (image_height_ - 2 * VERTICAL_BORDER) / 2,
-        image_width_ - 2 * HORIZONTAL_BORDER,
-        image_height_ - 2 * VERTICAL_BORDER);
+//Draw detctor bounding area
+   dRect(
+img, 
+image_width_/2 - (image_width_-2*HORIZONTAL_BORDER)/2, 
+image_height_/2 - (image_height_-2*VERTICAL_BORDER)/2,
+image_width_-2*HORIZONTAL_BORDER,
+image_height_-2*VERTICAL_BORDER
+); 
 
     // draw circles for the identified keypoints
     for (auto it = pts.begin(); it != pts.end(); ++it) {
@@ -190,7 +194,7 @@ void processImg(cv_bridge::CvImagePtr img, std::unordered_map<int, int> pts, int
 
     //Draw text on img
     std::string tPoints{ "Corners: " + std::to_string(pts.size()) };
-    drawText(img, 30, 30, tPoints);
+   drawText(img, 30, 30, tPoints);
 }
 
 // === DYNAMIC RECONFIG ===
