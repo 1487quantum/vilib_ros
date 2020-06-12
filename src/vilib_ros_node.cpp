@@ -20,12 +20,10 @@
 #include <vector>
 #include <unordered_map>
 #include <thread>
-#include <future>
 
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <ros/ros.h>
 #include <geometry_msgs/Point.h>
@@ -67,12 +65,10 @@ image_transport::Publisher imgPub;
 image_transport::Subscriber imgSub;
 
 // === FEATURE DETECTOR ===
-
+std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
 //FASt corner detector fx, return all the points detected
 std::unordered_map<int, int> fDetector(cv_bridge::CvImagePtr imgpt, int image_width_, int image_height_)
 {
-    std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
-
     //For pyramid storage
     detector_gpu_.reset(new FASTGPU(image_width_,
         image_height_,
@@ -150,10 +146,11 @@ void dCircle(cv_bridge::CvImagePtr imgpt, int x, int y)
 }
 
 //Draw rect (bounding area)
-void dRect(cv_bridge::CvImagePtr imgpt, int x, int y, int w, int h){
-int thickness = 2;
-cv::Rect rect(x, y, w, h);
-cv::rectangle(imgpt->image, rect, cv::Scalar(0, 255, 0), thickness);
+void dRect(cv_bridge::CvImagePtr imgpt, int x, int y, int w, int h)
+{
+    int thickness = 2;
+    cv::Rect rect(x, y, w, h);
+    cv::rectangle(imgpt->image, rect, cv::Scalar(0, 255, 0), thickness);
 }
 
 //Draw text & detected features on img
@@ -164,14 +161,13 @@ void processImg(cv_bridge::CvImagePtr img, std::unordered_map<int, int> pts, int
     pt_msg.stamp = ros::Time::now();
     pt_msg.size = pts.size();
 
-//Draw detctor bounding area
-   dRect(
-img, 
-image_width_/2 - (image_width_-2*HORIZONTAL_BORDER)/2, 
-image_height_/2 - (image_height_-2*VERTICAL_BORDER)/2,
-image_width_-2*HORIZONTAL_BORDER,
-image_height_-2*VERTICAL_BORDER
-); 
+    //Draw detctor bounding area
+    dRect(
+        img,
+        image_width_ / 2 - (image_width_ - 2 * HORIZONTAL_BORDER) / 2,
+        image_height_ / 2 - (image_height_ - 2 * VERTICAL_BORDER) / 2,
+        image_width_ - 2 * HORIZONTAL_BORDER,
+        image_height_ - 2 * VERTICAL_BORDER);
 
     // draw circles for the identified keypoints
     for (auto it = pts.begin(); it != pts.end(); ++it) {
@@ -194,7 +190,7 @@ image_height_-2*VERTICAL_BORDER
 
     //Draw text on img
     std::string tPoints{ "Corners: " + std::to_string(pts.size()) };
-   drawText(img, 30, 30, tPoints);
+    drawText(img, 30, 30, tPoints);
 }
 
 // === DYNAMIC RECONFIG ===
