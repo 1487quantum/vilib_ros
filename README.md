@@ -45,3 +45,10 @@ $ rosrun rqt_reconfigure rqt_reconfigure
 - VERTICAL_BORDER: Vertical image detection padding
 - CELL_SIZE_WIDTH: NMS cell width
 - CELL_SIZE_HEIGHT: NMS cell height
+
+## Known Issue(s)
+- Ouput image does not render the correct color. (Appears black only)
+
+
+# License
+Licensed under the [MIT License](./LICENSE).
