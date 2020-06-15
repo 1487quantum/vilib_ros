@@ -4,9 +4,12 @@
 ROS wrapper for CUDA Visual Library by RPG.
 
 ## Dependencies
-The following packages are required for the vilib wrapper:
+The following packages are required for the vilib_ros wrapper.
+### ROS Packages
 - vision_opencv: `$ sudo apt install ros-melodic-vision-opencv`
 - image pipeline: `$ sudo apt install ros-melodic-image-pipeline`
+### vilib
+The library could be found [here](https://github.com/uzh-rpg/vilib), follow the installation steps to install the library.
 
 ## Nodes
 There are 2 nodes for this package, which are:
