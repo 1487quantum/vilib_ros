@@ -107,6 +107,7 @@ geometry_msgs
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
 generate_dynamic_reconfigure_options(
    cfg/fast_param.cfg
+   cfg/tracker_param.cfg
 #   cfg/DynReconf2.cfg
 )
 
@@ -166,7 +167,7 @@ add_executable(vilib_tracker src/vilib_tracker.cpp)
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} vilib ${PROJECT_NAME}_gencfg)
-add_dependencies(vilib_tracker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} vilib)
+add_dependencies(vilib_tracker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} vilib ${PROJECT_NAME}_gencfg)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${OpenCV_LIBS} vilib)

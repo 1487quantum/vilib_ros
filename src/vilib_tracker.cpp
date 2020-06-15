@@ -31,8 +31,10 @@
 #include <geometry_msgs/Point.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
+#include <dynamic_reconfigure/server.h>
 
 #include "vilib_ros/keypt.h"
+#include "vilib_ros/tracker_paramConfig.h"
 
 #include "vilib/cuda_common.h"
 #include "vilib/preprocess/pyramid.h"
@@ -43,19 +45,18 @@
 using namespace vilib;
 
 // Frame options
-#define FRAME_IMAGE_PYRAMID_LEVELS 5
+int FRAME_IMAGE_PYRAMID_LEVELS{5};
 // Feature detection options
-#define FEATURE_DETECTOR_CELL_SIZE_WIDTH 32
-#define FEATURE_DETECTOR_CELL_SIZE_HEIGHT 32
-#define FEATURE_DETECTOR_MIN_LEVEL 0
-#define FEATURE_DETECTOR_MAX_LEVEL 5
-#define FEATURE_DETECTOR_HORIZONTAL_BORDER 8
-#define FEATURE_DETECTOR_VERTICAL_BORDER 8
-
+int FEATURE_DETECTOR_CELL_SIZE_WIDTH{32};
+int FEATURE_DETECTOR_CELL_SIZE_HEIGHT{32};
+int FEATURE_DETECTOR_MIN_LEVEL{0};
+int FEATURE_DETECTOR_MAX_LEVEL{5};
+int FEATURE_DETECTOR_HORIZONTAL_BORDER{8};
+int FEATURE_DETECTOR_VERTICAL_BORDER{8};
 // FAST parameters
-#define FEATURE_DETECTOR_FAST_EPISLON 60.f
-#define FEATURE_DETECTOR_FAST_ARC_LENGTH 14
-#define FEATURE_DETECTOR_FAST_SCORE SUM_OF_ABS_DIFF_ON_ARC
+float FEATURE_DETECTOR_FAST_EPISLON{60.f};
+int FEATURE_DETECTOR_FAST_ARC_LENGTH{14};
+vilib::fast_score FEATURE_DETECTOR_FAST_SCORE{SUM_OF_ABS_DIFF_ON_ARC};
 
 // Pub/Sub
 ros::Publisher ptsPub;
@@ -191,17 +192,19 @@ void processImg(cv_bridge::CvImagePtr img, std::shared_ptr<vilib::Frame> ff, int
         }
 
         //ROS_WARN_STREAM( track_id << ": " << track_color<< ", x: "<<((int)x>>SHIFT_BITS)<<", y: "<<((int)y>>SHIFT_BITS));
-        dCircle(img, (int)x, (int)y, track_color, SHIFT_BITS);
+        dCircle(img, (int)x, (int)y, track_color, SHIFT_BITS);		//Draw circle around feature
 
         //Label points
         int pt_x{ ((int)x >> SHIFT_BITS) };
         int pt_y{ ((int)y >> SHIFT_BITS) };
+	//Label location offset
         int x_offset{ 0 };
         int y_offset{ -8 };
         //Add the points
         geometry_msgs::Point pt;
         pt.x = pt_x;
         pt.y = pt_y;
+	pt.z = track_id;		//Z would store the feature Index
         pt_msg.points.push_back(pt);
         //Draw pt number
         std::string ploc{ "P" + std::to_string(track_id) };
@@ -221,7 +224,49 @@ void processImg(cv_bridge::CvImagePtr img, std::shared_ptr<vilib::Frame> ff, int
     ptsPub.publish(pt_msg);
 }
 
+// === DYNAMIC RECONFIG ===
+
+void setDRVals(vilib_ros::tracker_paramConfig& config, bool debug)
+{
+// Frame options
+FRAME_IMAGE_PYRAMID_LEVELS = config.FRAME_IMAGE_PYRAMID_LEVELS;
+// Feature detection options
+FEATURE_DETECTOR_CELL_SIZE_WIDTH = config.FEATURE_DETECTOR_CELL_SIZE_WIDTH;
+FEATURE_DETECTOR_CELL_SIZE_HEIGHT = config.FEATURE_DETECTOR_CELL_SIZE_HEIGHT;
+FEATURE_DETECTOR_MIN_LEVEL = config.FEATURE_DETECTOR_MIN_LEVEL;
+FEATURE_DETECTOR_MAX_LEVEL = config.FEATURE_DETECTOR_MAX_LEVEL;
+FEATURE_DETECTOR_HORIZONTAL_BORDER = config.FEATURE_DETECTOR_HORIZONTAL_BORDER;
+FEATURE_DETECTOR_VERTICAL_BORDER = config.FEATURE_DETECTOR_VERTICAL_BORDER;
+// FAST parameters
+FEATURE_DETECTOR_FAST_EPISLON= (float) config.FEATURE_DETECTOR_FAST_EPISLON;
+FEATURE_DETECTOR_FAST_ARC_LENGTH = config.FEATURE_DETECTOR_FAST_ARC_LENGTH;
+FEATURE_DETECTOR_FAST_SCORE = (config.FEATURE_DETECTOR_FAST_SCORE ? vilib::MAX_THRESHOLD : vilib::SUM_OF_ABS_DIFF_ON_ARC);
+//Reset detector
+initialized_=false;
+    if (debug) {
+        ROS_INFO("\nReconfigure Request:\n=== FRAME OPTIONS ===\n%d\n=== FEATURE DETECTION ===\n%d %d %d %d %d %d\n=== FAST PARAMETERS ===\n%f %d %d\n", 
+config.FRAME_IMAGE_PYRAMID_LEVELS, 
+config.FEATURE_DETECTOR_CELL_SIZE_WIDTH,
+config.FEATURE_DETECTOR_CELL_SIZE_HEIGHT,
+config.FEATURE_DETECTOR_MIN_LEVEL,
+config.FEATURE_DETECTOR_MAX_LEVEL,
+config.FEATURE_DETECTOR_HORIZONTAL_BORDER,
+config.FEATURE_DETECTOR_VERTICAL_BORDER,
+config.FEATURE_DETECTOR_FAST_EPISLON, 
+config.FEATURE_DETECTOR_FAST_ARC_LENGTH,
+config.FEATURE_DETECTOR_FAST_SCORE
+);
+    }
+}
+
+
 // === CALLBACK & PUBLISHER ===
+
+//Dynamic reconfigure
+void dr_callback(vilib_ros::tracker_paramConfig& config, uint32_t level)
+{
+    setDRVals(config, false);
+}
 
 void pub_img(cv_bridge::CvImagePtr ipt)
 {
@@ -262,6 +307,14 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "vilib_tracker");
     ros::NodeHandle nh;
 
+
+ //Dynamic reconfig
+    dynamic_reconfigure::Server<vilib_ros::tracker_paramConfig> ft_server;
+    dynamic_reconfigure::Server<vilib_ros::tracker_paramConfig>::CallbackType ft_cb;
+
+    ft_cb = boost::bind(&dr_callback, _1, _2);
+    ft_server.setCallback(ft_cb);
+
     // Pub-Sub
     image_transport::ImageTransport it(nh);
     imgSub = it.subscribe("img_in", 1, imgCallback); //Sub
@@ -273,3 +326,4 @@ int main(int argc, char** argv)
 
     return 0;
 }
+
