@@ -66,7 +66,6 @@ find_library( vilib libvilib )
  add_message_files(
    FILES
    keypt.msg
-#   Message2.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -87,7 +86,7 @@ find_library( vilib libvilib )
  generate_messages(
    DEPENDENCIES
 geometry_msgs
-   sensor_msgs#   std_msgs
+   sensor_msgs
  )
 
 ################################################
@@ -108,7 +107,6 @@ geometry_msgs
 generate_dynamic_reconfigure_options(
    cfg/fast_param.cfg
    cfg/tracker_param.cfg
-#   cfg/DynReconf2.cfg
 )
 
 ###################################
@@ -121,9 +119,8 @@ generate_dynamic_reconfigure_options(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+  INCLUDE_DIRS include
 #  LIBRARIES vilib_ros
-#  CATKIN_DEPENDS roscpp rospy sensor_msgs std_msgs
   CATKIN_DEPENDS cv_bridge roscpp rospy std_msgs sensor_msgs image_transport message_runtime
 #  DEPENDS system_lib
 )
@@ -135,7 +132,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+include
  ${catkin_INCLUDE_DIRS}
 #${CUDA_INCLUDE_DIRS}
 "/usr/local/cuda-10.2/include"
@@ -157,7 +154,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_node src/vilib_ros_node.cpp)
-add_executable(vilib_tracker src/vilib_tracker.cpp)
+add_executable(vilib_ros_tracker src/vilib_ros_tracker.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -167,11 +164,11 @@ add_executable(vilib_tracker src/vilib_tracker.cpp)
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} vilib ${PROJECT_NAME}_gencfg)
-add_dependencies(vilib_tracker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} vilib ${PROJECT_NAME}_gencfg)
+add_dependencies(vilib_ros_tracker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} vilib ${PROJECT_NAME}_gencfg)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${OpenCV_LIBS} vilib)
-target_link_libraries(vilib_tracker ${catkin_LIBRARIES} ${OpenCV_LIBS} vilib)
+target_link_libraries(vilib_ros_tracker ${catkin_LIBRARIES} ${OpenCV_LIBS} vilib)
 
 #############
 ## Install ##
