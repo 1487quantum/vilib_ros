@@ -3,6 +3,8 @@
 
 ROS wrapper for CUDA Visual Library by RPG.
 
+> Tested with ROS melodic with custom OpenCV installation. (3.4.10)
+
 ## Dependencies
 The following packages are required for the vilib_ros wrapper.
 ### CUDA
@@ -80,6 +82,24 @@ $ rosrun rqt_reconfigure rqt_reconfigure
 - FEATURE_DETECTOR_FAST_EPISLON: Threshold for feature detection
 - FEATURE_DETECTOR_FAST_ARC_LENGTH: FAST arc length
 - FEATURE_DETECTOR_FAST_SCORE: FAST_SCORE Setter (Sum of absolute differences/Maximum threshold value)
+
+## Troubleshooting
+- If there is compilaion issue of cv_bridge caused by the being unable to locate the OpenCV path, the cv_bridge cmake have to be updated to point to the new path. For example, updating the path
+```cmake
+if(NOT "include;/usr/include;/usr/include/opencv" STREQUAL " ")
+
+  set(cv_bridge_INCLUDE_DIRS "")
+  set(_include_dirs "include;/usr/include;/usr/include/opencv")
+```
+to
+```cmake
+if(NOT "include;/usr/local;/usr/local/opencv/include" STREQUAL " ")
+
+  set(cv_bridge_INCLUDE_DIRS "")
+  set(_include_dirs "include;/usr/local/opencv/include;/usr/local/opencv/include/opencv2")
+```
+
+
 
 ## Known Issue(s)
 - Ouput image does not render the correct color. (Appears black only)
