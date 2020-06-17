@@ -18,19 +18,20 @@
  */
 
 #include "vilib_ros/vilib_ros_node.hpp"
+#include "vilib_ros/config/config_fast.hpp"
 
 using namespace vilib;
 
-vilib_ros_fast::vilib_ros_fast(ros::NodeHandle nh_)
+VFASTNode::VFASTNode(const ros::NodeHandle& nh_)
 {
     this->nh = nh_;
 };
 
-void vilib_ros_fast::init()
+void VFASTNode::init()
 {
     // Pub-Sub
     image_transport::ImageTransport it(this->nh);
-    imgSub = it.subscribe("img_in", 1, &vilib_ros_fast::imgCallback, this); //Sub
+    imgSub = it.subscribe("img_in", 1, &VFASTNode::imgCallback, this); //Sub
 
     ptsPub = nh.advertise<vilib_ros::keypt>("fast_pts", 1);
     imgPub = it.advertise("img_out", 1);
@@ -39,18 +40,18 @@ void vilib_ros_fast::init()
 }
 
 // === CALLBACK & PUBLISHER ===
-void vilib_ros_fast::dr_callback(vilib_ros::fast_paramConfig& config, uint32_t level)
+void VFASTNode::dr_callback(const vilib_ros::fast_paramConfig& config, uint32_t level)
 {
     setDRVals(config, false);
 }
 
-void vilib_ros_fast::pub_img(cv_bridge::CvImagePtr ipt)
+void VFASTNode::pub_img(cv_bridge::CvImagePtr ipt)
 {
     sensor_msgs::ImagePtr msg{ cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg() };
     imgPub.publish(msg);
 }
 
-void vilib_ros_fast::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
+void VFASTNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
 {
     try {
         std::unordered_map<int, int> pts; //Feature points detected
@@ -64,16 +65,18 @@ void vilib_ros_fast::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
         int image_height_{ gImg->image.rows };
 
         pts = getPoints(fDetector(gImg, image_width_, image_height_)); //Feature detector (FAST) with grayscale img
-        processImg(imagePtrRaw, pts, image_width_, image_height_); //Draw the feature point(s)on the img/vid
 
-        pub_img(imagePtrRaw);
+	const auto psimg_out = std::async(std::launch::async, &VFASTNode::processImg, this, imagePtrRaw, pts, image_width_, image_height_);
+        //processImg(imagePtrRaw, pts, image_width_, image_height_); //Draw the feature point(s)on the img/vid
+	
+        //pub_img(imagePtrRaw);
     }
     catch (cv_bridge::Exception& e) {
         ROS_ERROR("Could not convert from '%s' to 'bgr16'.", imgp->encoding.c_str());
     }
 }
 
-std::shared_ptr<vilib::DetectorBaseGPU> vilib_ros_fast::fDetector(cv_bridge::CvImagePtr imgpt, int image_width_, int image_height_)
+std::shared_ptr<vilib::DetectorBaseGPU> VFASTNode::fDetector(const cv_bridge::CvImagePtr& imgpt, const int& image_width_, const int& image_height_)
 {
 std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
     //For pyramid storage
@@ -106,7 +109,7 @@ std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
 return detector_gpu_;
 }
 
-std::unordered_map<int, int> vilib_ros_fast::getPoints(std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_){
+std::unordered_map<int, int> VFASTNode::getPoints(const std::shared_ptr<vilib::DetectorBaseGPU>& detector_gpu_){
   // Display results
     auto& points_gpu{ detector_gpu_->getPoints() };
     auto& points_gpu_grid{ detector_gpu_->getGrid() };
@@ -126,13 +129,13 @@ std::unordered_map<int, int> vilib_ros_fast::getPoints(std::shared_ptr<vilib::De
 }
 
 // === GRAPHICS ===
-void vilib_ros_fast::drawText(cv_bridge::CvImagePtr imgpt, int x, int y, const std::string& msg)
+void VFASTNode::drawText(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const std::string& msg)
 {
     cv::putText(imgpt->image, msg, cv::Point(x, y), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8,
         cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
 }
 
-void vilib_ros_fast::dCircle(cv_bridge::CvImagePtr imgpt, int x, int y)
+void VFASTNode::dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y)
 {
     int thickness{ 2 };
     cv::circle(imgpt->image,
@@ -144,27 +147,21 @@ void vilib_ros_fast::dCircle(cv_bridge::CvImagePtr imgpt, int x, int y)
         10);
 }
 
-void vilib_ros_fast::dRect(cv_bridge::CvImagePtr imgpt, int x, int y, int w, int h)
+void VFASTNode::dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h)
 {
     int thickness{ 2 };
     cv::Rect rect(x, y, w, h);
     cv::rectangle(imgpt->image, rect, cv::Scalar(0, 255, 0), thickness);
 }
 
-void vilib_ros_fast::processImg(cv_bridge::CvImagePtr img, std::unordered_map<int, int> pts, int image_width_, int image_height_)
+void VFASTNode::processImg(const cv_bridge::CvImagePtr& img, const std::unordered_map<int, int>& pts, const int& image_width_, const int& image_height_)
 {
     //Points to publish
     vilib_ros::keypt pt_msg;
     pt_msg.stamp = ros::Time::now();
     pt_msg.size = pts.size();
 
-    //Draw detection bounding area
-    dRect(
-        img,
-        HORIZONTAL_BORDER,
-        VERTICAL_BORDER,
-        image_width_ - 2 * HORIZONTAL_BORDER,
-        image_height_ - 2 * VERTICAL_BORDER);
+std::lock_guard<std::mutex> lock(pimgMutex);
 
     // draw circles for the identified keypoints
     for (auto it = pts.begin(); it != pts.end(); ++it) {
@@ -184,13 +181,23 @@ void vilib_ros_fast::processImg(cv_bridge::CvImagePtr img, std::unordered_map<in
 
     ptsPub.publish(pt_msg); //Publish /feature_pts
 
+ //Draw detection bounding area
+    dRect(
+        img,
+        HORIZONTAL_BORDER,
+        VERTICAL_BORDER,
+        image_width_ - 2 * HORIZONTAL_BORDER,
+        image_height_ - 2 * VERTICAL_BORDER);
+
     //Draw text on img
     std::string tPoints{ "Corners: " + std::to_string(pts.size()) };
     drawText(img, 30, 30, tPoints);
+
+    pub_img(img);
 }
 
 // === DYNAMIC RECONFIG ===
-void vilib_ros_fast::setDRVals(vilib_ros::fast_paramConfig& config, bool debug)
+void VFASTNode::setDRVals(const vilib_ros::fast_paramConfig& config, const bool& debug)
 {
     PYRAMID_LEVELS = config.PYRAMID_LEVELS; //Pyramid level
     PYRAMID_MAX_LEVEL = PYRAMID_LEVELS;
@@ -210,9 +217,9 @@ void vilib_ros_fast::setDRVals(vilib_ros::fast_paramConfig& config, bool debug)
     }
 }
 
-void vilib_ros_fast::startReconfig()
+void VFASTNode::startReconfig()
 {
-    ft_cb = boost::bind(&vilib_ros_fast::dr_callback, this, _1, _2);
+    ft_cb = boost::bind(&VFASTNode::dr_callback, this, _1, _2);
     ft_server.setCallback(ft_cb);
 }
 
@@ -221,7 +228,7 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "vilib_ros");
     ros::NodeHandle nh;
 
-    vilib_ros_fast vrf(nh);
+    VFASTNode vrf(nh);
     vrf.init();
 
     //Start Multithreading Process(Async thread): http://wiki.ros.org/roscpp/Overview/Callbacks%20and%20Spinning
