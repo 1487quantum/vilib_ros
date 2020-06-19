@@ -46,8 +46,8 @@ public:
     //Init
     void init();
     // === CALLBACK & PUBLISHER ===
-    void dr_callback(const vilib_ros::fast_paramConfig& config, uint32_t level); //Dynamic reconfigure
-    void pub_img(cv_bridge::CvImagePtr ipt); //Publish img with features
+    void dr_callback(const vilib_ros::fast_paramConfig& config, const uint32_t& level); //Dynamic reconfigure
+    void pub_img(const cv_bridge::CvImagePtr& ipt); //Publish img with features
     void imgCallback(const sensor_msgs::ImageConstPtr& imgp); //Image Input callback
 
 private:
@@ -69,8 +69,8 @@ private:
 
     // === GRAPHICS ===
     void drawText(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const std::string& msg); //Draw text
-    void dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y); //Draw feature point
-    void dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h); //Draw bounding rectangle
+    void dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& thickness); //Draw feature point
+    void dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h, const int& thickness); //Draw bounding rectangle
     void processImg(const cv_bridge::CvImagePtr& img, const std::unordered_map<int, int>& pts, const int& image_width_, const int& image_height_); //Draw text & detected features on img
 
     // === DYNAMIC RECONFIG ===
