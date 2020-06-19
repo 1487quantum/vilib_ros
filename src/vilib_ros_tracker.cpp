@@ -91,6 +91,9 @@ std::shared_ptr<vilib::Frame> VTrackNode::iTracker(const cv_bridge::CvImagePtr& 
     // Deinitialize the pyramid pool (for consecutive frames)
     PyramidPool::deinit();
 
+//Release Image
+    imgpt->image.release();
+
     return frame;
 }
 
@@ -101,9 +104,8 @@ void VTrackNode::drawText(const cv_bridge::CvImagePtr& imgpt, const int& x, cons
         cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
 }
 
-void VTrackNode::dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const cv::Scalar& clr, const int& r)
+void VTrackNode::dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const cv::Scalar& clr, const int& r, const int& thickness)
 {
-    int thickness = 3;
     cv::circle(imgpt->image,
         cv::Point(x, y),
         1 * 3 * (1 << r),
@@ -113,9 +115,8 @@ void VTrackNode::dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const
         r); // shift: number of fractional bits in the coordinates AND the radius
 }
 
-void VTrackNode::dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h)
+void VTrackNode::dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h, const int& thickness)
 {
-    int thickness = 2;
     cv::Rect rect(x, y, w, h);
     cv::rectangle(imgpt->image, rect, cv::Scalar(0, 255, 0), thickness);
 }
@@ -138,14 +139,14 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         float x = pos_2d[0] * (1 << SHIFT_BITS);
         float y = pos_2d[1] * (1 << SHIFT_BITS);
         // Track id
-        const int& track_id = ff->track_id_vec_[i];
+        const int& track_id{ff->track_id_vec_[i]};
         // Color: B,G,R
         cv::Scalar track_color(255, 255, 255);
         if (last_track_id < track_id) {
             // new feature: generate random color, but dont use is yet
-            int channel_b = rand() % 255;
-            int channel_g = rand() % 255;
-            int channel_r = rand() % 255;
+            int channel_b{rand() % 255};
+            int channel_g{rand() % 255};
+            int channel_r{rand() % 255};
             track_colors[(std::size_t)track_id] = cv::Scalar(channel_b, channel_g, channel_r);
         }
         else {
@@ -154,7 +155,7 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         }
 
         //ROS_WARN_STREAM( track_id << ": " << track_color<< ", x: "<<((int)x>>SHIFT_BITS)<<", y: "<<((int)y>>SHIFT_BITS));
-        dCircle(img, (int)x, (int)y, track_color, SHIFT_BITS); //Draw circle around feature
+        dCircle(img, (int)x, (int)y, track_color, SHIFT_BITS, 2); //Draw circle around feature
 
         //Label points
         int pt_x{ ((int)x >> SHIFT_BITS) };
@@ -178,12 +179,22 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         last_track_id = ff->track_id_vec_[ff->num_features_ - 1];
     }
 
+//Draw bounding area
+  dRect(
+        img,
+        FEATURE_DETECTOR_HORIZONTAL_BORDER,
+        FEATURE_DETECTOR_VERTICAL_BORDER,
+        image_width_ - 2 * FEATURE_DETECTOR_HORIZONTAL_BORDER,
+        image_height_ - 2 * FEATURE_DETECTOR_VERTICAL_BORDER,
+	3);
+
     //Draw text on img
     std::string tPoints{ "Corners: " + std::to_string(ff->num_features_) };
     drawText(img, 30, 30, tPoints);
 
     //Publish features
     ptsPub.publish(pt_msg);
+    img->image.release();
 }
 
 // === DYNAMIC RECONFIG ===

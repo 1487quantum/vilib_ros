@@ -72,8 +72,8 @@ private:
 
     // === GRAPHICS ===
     void drawText(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const std::string& msg);
-    void dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const cv::Scalar& clr, const int& r); //Draw circle at track point
-    void dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h); //Draw rect (bounding area)
+    void dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const cv::Scalar& clr, const int& r, const int& thickness); //Draw circle at track point
+    void dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h, const int& thickness); //Draw rect (bounding area)
     void processImg(const cv_bridge::CvImagePtr& img, const std::shared_ptr<vilib::Frame>& ff, const int& image_width_, const int& image_height_);
 
     // === DYNAMIC RECONFIG ===
