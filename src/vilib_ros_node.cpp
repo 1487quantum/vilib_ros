@@ -245,7 +245,7 @@ int main(int argc, char** argv)
 
     spinner.start();
     ros::waitForShutdown();
-
+    vilib::PyramidPool::deinit(); // Deinitialize the pyramid pool
     return 0;
 }
 
