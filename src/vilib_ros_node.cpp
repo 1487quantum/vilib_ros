@@ -43,6 +43,8 @@ void VFASTNode::init()
 void VFASTNode::dr_callback(const vilib_ros::fast_paramConfig& config, const uint32_t& level)
 {
     setDRVals(config, false);
+//Reset GPU
+init_=false;
 }
 
 void VFASTNode::pub_img(const cv_bridge::CvImagePtr& ipt)
@@ -80,8 +82,7 @@ std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
 std::shared_ptr<vilib::DetectorBaseGPU> VFASTNode::fDetector(const cv_bridge::CvImagePtr& imgpt, const int& image_width_, const int& image_height_)
 {
 
-if(!init_){
-    //For pyramid storage
+//For pyramid storage
     detector_gpu_.reset(new vilib::FASTGPU(image_width_,
         image_height_,
         CELL_SIZE_WIDTH,
@@ -94,7 +95,8 @@ if(!init_){
         FAST_MIN_ARC_LENGTH,
         FAST_SCORE));
 
-// Initialize the pyramid pool
+if(!init_){
+    // Initialize the pyramid pool
     vilib::PyramidPool::init(1,
         image_width_,
         image_height_,
@@ -109,7 +111,7 @@ init_=true;
     detector_gpu_->reset(); // Reset detector's grid (Note: this step could be actually avoided with custom processing)
     detector_gpu_->detect(frame0->pyramid_); // Do the detection
 
-
+    vilib::PyramidPool::deinit(); // Deinitialize the pyramid pool
 
 return detector_gpu_;
 }
@@ -126,6 +128,7 @@ std::unordered_map<int, int> VFASTNode::getPoints(const std::shared_ptr<vilib::D
     for (auto it = points_gpu.begin(); it != points_gpu.end(); ++it) {
         int key = ((int)it->x_) | (((int)it->y_) << 16);
         if (key) {
+	//ROS_WARN_STREAM(it->x_<<","<<it->y_<<","<<it->score_<<","<<it->level_);
             points_combined.emplace(key, 3);
         }
         ++pidx;
