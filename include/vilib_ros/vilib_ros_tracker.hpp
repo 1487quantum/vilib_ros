@@ -39,36 +39,45 @@
 #include "vilib/feature_detection/fast/fast_gpu.h"
 #include "vilib/feature_tracker/feature_tracker_gpu.h"
 
-#include "vilib_ros/config/config_tracker.hpp"
 #include "vilib_ros/keypt.h"
 #include "vilib_ros/tracker_paramConfig.h"
 
-using namespace vilib;
+class VTrackNode {
+public:
+    VTrackNode(const ros::NodeHandle& nh_);
+    void init(); //Init
+    // === CALLBACK & PUBLISHER ===
+    void dr_callback(const vilib_ros::tracker_paramConfig& config, const uint32_t& level);
+    void pub_img(const cv_bridge::CvImagePtr& ipt);
+    void imgCallback(const sensor_msgs::ImageConstPtr& imgp);
 
-// Pub/Sub
-ros::Publisher ptsPub;
-image_transport::Publisher imgPub;
-image_transport::Subscriber imgSub;
+private:
+    ros::NodeHandle nh; //Node handle
+    // Pub/Sub
+    ros::Publisher ptsPub;
+    image_transport::Publisher imgPub;
+    image_transport::Subscriber imgSub;
+    //Dynamic reconfig
+    dynamic_reconfigure::Server<vilib_ros::tracker_paramConfig> ft_server;
+    dynamic_reconfigure::Server<vilib_ros::tracker_paramConfig>::CallbackType ft_cb;
 
-// === FEATURE TRACKER ===
-std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
-std::shared_ptr<vilib::FeatureTrackerBase> tracker_gpu_;
+    // === FEATURE TRACKER ===
+    std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
+    std::shared_ptr<vilib::FeatureTrackerBase> tracker_gpu_;
 
-//Tracker
-bool initialized_{ false };
-std::size_t total_tracked_ftr_cnt, total_detected_ftr_cnt;
-std::shared_ptr<vilib::Frame> iTracker(cv_bridge::CvImagePtr imgpt, int image_width_, int image_height_);	//Feature Tracker fx, return all the points detected
+    //Tracker
+    bool initialized_{ false };
+    std::size_t total_tracked_ftr_cnt, total_detected_ftr_cnt;
+    std::shared_ptr<vilib::Frame> iTracker(const cv_bridge::CvImagePtr& imgpt, const int& image_width_, const int& image_height_); //Feature Tracker fx, return all the points detected
 
-// === GRAPHICS ===
-void drawText(cv_bridge::CvImagePtr imgpt, int x, int y, std::string msg);
-void dCircle(cv_bridge::CvImagePtr imgpt, int x, int y, cv::Scalar clr, int r);	//Draw circle at track point
-void dRect(cv_bridge::CvImagePtr imgpt, int x, int y, int w, int h);	//Draw rect (bounding area)
-void processImg(cv_bridge::CvImagePtr img, std::shared_ptr<vilib::Frame> ff, int image_width_, int image_height_);
+    // === GRAPHICS ===
+    void drawText(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const std::string& msg);
+    void dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const cv::Scalar& clr, const int& r); //Draw circle at track point
+    void dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h); //Draw rect (bounding area)
+    void processImg(const cv_bridge::CvImagePtr& img, const std::shared_ptr<vilib::Frame>& ff, const int& image_width_, const int& image_height_);
 
-// === DYNAMIC RECONFIG ===
-void setDRVals(vilib_ros::tracker_paramConfig& config, bool debug);
+    // === DYNAMIC RECONFIG ===
+    void setDRVals(const vilib_ros::tracker_paramConfig& config, const bool& debug);
+    void startReconfig();
+};
 
-// === CALLBACK & PUBLISHER ===
-void dr_callback(vilib_ros::tracker_paramConfig& config, uint32_t level);
-void pub_img(cv_bridge::CvImagePtr ipt);
-void imgCallback(const sensor_msgs::ImageConstPtr& imgp);
