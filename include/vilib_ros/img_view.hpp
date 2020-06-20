@@ -17,10 +17,8 @@
  * 
  */
 
-#include <iostream>
 #include <vector>
 #include <unordered_map>
-#include <thread>
 
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -31,54 +29,40 @@
 #include <geometry_msgs/Point.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
-#include <dynamic_reconfigure/server.h>
 
 #include "vilib/cuda_common.h"
 #include "vilib/preprocess/pyramid.h"
 #include "vilib/storage/pyramid_pool.h"
 #include "vilib/feature_detection/fast/fast_gpu.h"
-#include "vilib/feature_tracker/feature_tracker_gpu.h"
 
 #include "vilib_ros/keypt.h"
-#include "vilib_ros/tracker_paramConfig.h"
 
-class VTrackNode {
+class ImgView {
 public:
-    VTrackNode(const ros::NodeHandle& nh_);
+    ImgView(const ros::NodeHandle& nh_);
     void init(); //Init
     // === CALLBACK & PUBLISHER ===
-    void dr_callback(const vilib_ros::tracker_paramConfig& config, const uint32_t& level);
-    void pub_img(const cv_bridge::CvImagePtr& ipt);
+    void ptsCallback(const vilib_ros::keyptConstPtr& pts);
     void imgCallback(const sensor_msgs::ImageConstPtr& imgp);
+void pub_img(const cv_bridge::CvImagePtr& ipt);
 
 private:
     ros::NodeHandle nh; //Node handle
     // Pub/Sub
     ros::Publisher ptsPub;
+ros::Subscriber ptsSub;
     image_transport::Publisher imgPub;
     image_transport::Subscriber imgSub;
-    //Dynamic reconfig
-    dynamic_reconfigure::Server<vilib_ros::tracker_paramConfig> ft_server;
-    dynamic_reconfigure::Server<vilib_ros::tracker_paramConfig>::CallbackType ft_cb;
+	int frameID_track{-1};		//Used to sync img and feature pts
 
-    // === FEATURE TRACKER ===
-    std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
-    std::shared_ptr<vilib::FeatureTrackerBase> tracker_gpu_;
-
-    //Tracker
-    int frameID{-1};
-    bool initialized_{ false };
-    std::size_t total_tracked_ftr_cnt, total_detected_ftr_cnt;
-    std::shared_ptr<vilib::Frame> iTracker(const cv_bridge::CvImagePtr& imgpt, const int& image_width_, const int& image_height_); //Feature Tracker fx, return all the points detected
+//Keypoints
+vilib_ros::keypt keypt_list;
 
     // === GRAPHICS ===
     void drawText(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const std::string& msg);
-    void dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const cv::Scalar& clr, const int& r, const int& thickness); //Draw circle at track point
+    void dCircle(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const cv::Scalar& clr, const int& thickness); //Draw circle at track point
     void dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h, const int& thickness); //Draw rect (bounding area)
-    void processImg(const cv_bridge::CvImagePtr& img, const std::shared_ptr<vilib::Frame>& ff, const int& image_width_, const int& image_height_);
+    void processImg(const cv_bridge::CvImagePtr& img, const vilib_ros::keypt& plist, const int& image_width_, const int& image_height_);
 
-    // === DYNAMIC RECONFIG ===
-    void setDRVals(const vilib_ros::tracker_paramConfig& config, const bool& debug);
-    void startReconfig();
 };
 

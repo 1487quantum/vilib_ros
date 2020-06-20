@@ -1,9 +1,10 @@
 <launch>
 
 <!--include file="$(find vilib_ros)/launch/vilib_base.launch"-->
-<include file="$(find vilib_ros)/launch/vilib_tracker.launch">
+<include file="$(find vilib_ros)/launch/vilib_tracker.launch"/>
+<include file="$(find vilib_ros)/launch/img_view.launch"/>
 
-</include>
+
 <!--Launch camera-->
 <include file="$(find jetson_csi_cam)/launch/jetson_csi_cam.launch">
 <arg name="sensor_id" value="0" />

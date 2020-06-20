@@ -1,0 +1,7 @@
+<launch>
+ 
+  <node pkg="vilib_ros" type="img_view" name="img_view">
+<remap from="img_in" to="img_feature_out" />
+  </node>
+
+</launch>

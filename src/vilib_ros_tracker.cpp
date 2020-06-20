@@ -34,7 +34,7 @@ void VTrackNode::init()
     imgSub = it.subscribe("img_in", 1, &VTrackNode::imgCallback, this); //Sub
 
     ptsPub = nh.advertise<vilib_ros::keypt>("feature_pts", 1);
-    imgPub = it.advertise("img_out", 1);
+    imgPub = it.advertise("img_feature_out", 1);
 
     startReconfig();
 }
@@ -125,6 +125,7 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
 {
     //Feature Points to publish
     vilib_ros::keypt pt_msg;
+    pt_msg.frame_id = ++frameID;			//To sync wih img frame
     pt_msg.stamp = ros::Time::now();
     pt_msg.size = ff->num_features_;
 
@@ -155,7 +156,9 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         }
 
         //ROS_WARN_STREAM( track_id << ": " << track_color<< ", x: "<<((int)x>>SHIFT_BITS)<<", y: "<<((int)y>>SHIFT_BITS));
-        dCircle(img, (int)x, (int)y, track_color, SHIFT_BITS, 2); //Draw circle around feature
+        
+
+//dCircle(img, (int)x, (int)y, track_color, SHIFT_BITS, 2); //Draw circle around feature
 
         //Label points
         int pt_x{ ((int)x >> SHIFT_BITS) };
@@ -169,9 +172,11 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         pt.y = pt_y;
         pt.z = track_id; //Z would store the feature Index
         pt_msg.points.push_back(pt);
+/*
         //Draw pt number
         std::string ploc{ "P" + std::to_string(track_id) };
         drawText(img, pt_x + x_offset, pt_y + y_offset, ploc); //Shift coordinates back
+*/
     }
 
     // update the highest track id
@@ -186,15 +191,16 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         FEATURE_DETECTOR_VERTICAL_BORDER,
         image_width_ - 2 * FEATURE_DETECTOR_HORIZONTAL_BORDER,
         image_height_ - 2 * FEATURE_DETECTOR_VERTICAL_BORDER,
-	3);
+	2);
 
+/*
     //Draw text on img
     std::string tPoints{ "Corners: " + std::to_string(ff->num_features_) };
     drawText(img, 30, 30, tPoints);
-
+*/
     //Publish features
     ptsPub.publish(pt_msg);
-    img->image.release();
+
 }
 
 // === DYNAMIC RECONFIG ===
@@ -240,6 +246,7 @@ void VTrackNode::pub_img(const cv_bridge::CvImagePtr& ipt)
 {
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg();
     imgPub.publish(msg); //Publish image
+    ipt->image.release();
 }
 
 void VTrackNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
