@@ -34,7 +34,7 @@ void VTrackNode::init()
     imgSub = it.subscribe("img_in", 1, &VTrackNode::imgCallback, this); //Sub
 
     ptsPub = nh.advertise<vilib_ros::keypt>("feature_pts", 1);
-    imgPub = it.advertise("img_feature_out", 1);
+  //  imgPub = it.advertise("img_feature_out", 1);
 
     startReconfig();
 }
@@ -191,7 +191,21 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         FEATURE_DETECTOR_VERTICAL_BORDER,
         image_width_ - 2 * FEATURE_DETECTOR_HORIZONTAL_BORDER,
         image_height_ - 2 * FEATURE_DETECTOR_VERTICAL_BORDER,
-	2);
+	1);
+
+//Add image
+//TODO: Fix cv mat to image conversion
+
+ sensor_msgs::Image img_pack;
+cv_bridge::CvImage img_bridge;
+
+std_msgs::Header header; // empty header
+header.seq = frameID; // user defined counter
+header.stamp = ros::Time::now(); // time
+img_bridge = cv_bridge::CvImage(header, sensor_msgs::image_encodings::BGR16, img->image);
+img_bridge.toImageMsg(img_pack); // from cv_bridge to sensor_msgs::Image
+
+    pt_msg.image_src = img_pack;
 
 /*
     //Draw text on img
@@ -242,12 +256,14 @@ void VTrackNode::dr_callback(const vilib_ros::tracker_paramConfig& config, const
     setDRVals(config, false);
 }
 
+/*
 void VTrackNode::pub_img(const cv_bridge::CvImagePtr& ipt)
 {
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg();
     imgPub.publish(msg); //Publish image
     ipt->image.release();
 }
+*/
 
 void VTrackNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
 {
@@ -266,7 +282,7 @@ void VTrackNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
 
         processImg(imagePtrRaw, ff, image_width_, image_height_); //Draw the feature point(s)on the img/vid
 
-        pub_img(imagePtrRaw);
+       // pub_img(imagePtrRaw);
     }
     catch (cv_bridge::Exception& e) {
         ROS_ERROR("Could not convert from '%s' to 'bgr16'.", imgp->encoding.c_str());

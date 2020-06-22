@@ -43,7 +43,7 @@ public:
     void init(); //Init
     // === CALLBACK & PUBLISHER ===
     void ptsCallback(const vilib_ros::keyptConstPtr& pts);
-    void imgCallback(const sensor_msgs::ImageConstPtr& imgp);
+  //  void imgCallback(const sensor_msgs::ImageConstPtr& imgp);
 void pub_img(const cv_bridge::CvImagePtr& ipt);
 
 private:
@@ -52,7 +52,7 @@ private:
     ros::Publisher ptsPub;
 ros::Subscriber ptsSub;
     image_transport::Publisher imgPub;
-    image_transport::Subscriber imgSub;
+   // image_transport::Subscriber imgSub;
 	int frameID_track{-1};		//Used to sync img and feature pts
 
 //Keypoints

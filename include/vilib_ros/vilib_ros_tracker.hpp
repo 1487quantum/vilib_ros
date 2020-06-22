@@ -48,14 +48,14 @@ public:
     void init(); //Init
     // === CALLBACK & PUBLISHER ===
     void dr_callback(const vilib_ros::tracker_paramConfig& config, const uint32_t& level);
-    void pub_img(const cv_bridge::CvImagePtr& ipt);
+    //void pub_img(const cv_bridge::CvImagePtr& ipt);
     void imgCallback(const sensor_msgs::ImageConstPtr& imgp);
 
 private:
     ros::NodeHandle nh; //Node handle
     // Pub/Sub
     ros::Publisher ptsPub;
-    image_transport::Publisher imgPub;
+    //image_transport::Publisher imgPub;
     image_transport::Subscriber imgSub;
     //Dynamic reconfig
     dynamic_reconfigure::Server<vilib_ros::tracker_paramConfig> ft_server;

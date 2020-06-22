@@ -29,7 +29,7 @@ void ImgView::init()
 {
     // Pub-Sub
     image_transport::ImageTransport it(nh);
-    imgSub = it.subscribe("img_in", 1, &ImgView::imgCallback, this);
+   // imgSub = it.subscribe("img_in", 1, &ImgView::imgCallback, this);
     ptsSub = nh.subscribe("feature_pts", 1, &ImgView::ptsCallback, this);
     imgPub = it.advertise("img_view_out", 1);
 
@@ -64,12 +64,15 @@ void ImgView::processImg(const cv_bridge::CvImagePtr& img, const vilib_ros::keyp
     static int last_track_id{ -1 };
     static std::unordered_map<std::size_t, cv::Scalar> track_colors;
 
+//TODO: Fix tracking issue, ref from ros_tracker
+
+
     // note: id-s start from 0
     for (int i = 0; i < plist.size; ++i) {
         // Track id
 	const int& track_id{i};
-	const int& pt_x{plist.points[i].x};
-	const int& pt_y{plist.points[i].y};
+	const int& pt_x = plist.points[i].x;
+	const int& pt_y = plist.points[i].y;
         // Color: B,G,R
         cv::Scalar track_color(255, 255, 255);
         if (last_track_id < track_id) {
@@ -121,7 +124,14 @@ keypt_list.frame_id = pts->frame_id;
 keypt_list.stamp = pts->stamp;
 keypt_list.points = pts->points;
 keypt_list.size = pts->size;
-ROS_WARN("%d %d",keypt_list.frame_id,keypt_list.size);
+keypt_list.image_src = pts->image_src;
+//ROS_WARN("%d %d",keypt_list.frame_id,keypt_list.size);
+
+        cv_bridge::CvImagePtr imagePtrRaw{ cv_bridge::toCvCopy(keypt_list.image_src , sensor_msgs::image_encodings::BGR16) };
+
+int image_width_{ imagePtrRaw->image.cols };
+        int image_height_{ imagePtrRaw->image.rows };
+        processImg(imagePtrRaw, keypt_list, image_width_, image_height_); //Draw the feature point(s)on the img/vid
 
 }
 
@@ -131,23 +141,25 @@ void ImgView::pub_img(const cv_bridge::CvImagePtr& ipt)
     imgPub.publish(msg); //Publish image
     ipt->image.release();
 }
-
+/*
 void ImgView::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
 {
 
     try {
+
         //http://docs.ros.org/kinetic/api/sensor_msgs/html/image__encodings_8h_source.html
         cv_bridge::CvImagePtr imagePtrRaw{ cv_bridge::toCvCopy(imgp, sensor_msgs::image_encodings::BGR16) };
         int image_width_{ imagePtrRaw->image.cols };
         int image_height_{ imagePtrRaw->image.rows };
         processImg(imagePtrRaw, keypt_list, image_width_, image_height_); //Draw the feature point(s)on the img/vid
 
+
     }
     catch (cv_bridge::Exception& e) {
         ROS_ERROR("Could not convert from '%s' to 'bgr16'.", imgp->encoding.c_str());
     }
 }
-
+*/
 
 int main(int argc, char** argv)
 {
