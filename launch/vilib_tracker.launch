@@ -1,6 +1,6 @@
 <launch>
  
-  <node pkg="vilib_ros" type="vilib_tracker" name="vilib_tracker">
+  <node pkg="vilib_ros" type="vilib_ros_tracker" name="vilib_tracker">
 <remap from="img_in" to="cam_L/image_raw" />
   </node>
 
