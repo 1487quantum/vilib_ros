@@ -87,12 +87,9 @@ std::shared_ptr<vilib::Frame> VTrackNode::iTracker(const cv_bridge::CvImagePtr& 
     tracker_gpu_->track(framebundle,
         total_tracked_ftr_cnt,
         total_detected_ftr_cnt);
-
-    // Deinitialize the pyramid pool (for consecutive frames)
-    PyramidPool::deinit();
-
-//Release Image
-    imgpt->image.release();
+    
+    PyramidPool::deinit();		// Deinitialize the pyramid pool (for consecutive frames)
+    imgpt->image.release();		//Release Image
 
     return frame;
 }
@@ -155,7 +152,6 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         }
 
         //ROS_WARN_STREAM( track_id << ": " << track_color<< ", x: "<<((int)x>>SHIFT_BITS)<<", y: "<<((int)y>>SHIFT_BITS));
-        dCircle(img, (int)x, (int)y, track_color, SHIFT_BITS, 2); //Draw circle around feature
 
         //Label points
         int pt_x{ ((int)x >> SHIFT_BITS) };
@@ -169,9 +165,15 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         pt.y = pt_y;
         pt.z = track_id; //Z would store the feature Index
         pt_msg.points.push_back(pt);
+
+if(draw_features){
+        dCircle(img, (int)x, (int)y, track_color, SHIFT_BITS, draw_features_thickness); //Draw circle around feature
+if(draw_features_text){
         //Draw pt number
         std::string ploc{ "P" + std::to_string(track_id) };
         drawText(img, pt_x + x_offset, pt_y + y_offset, ploc); //Shift coordinates back
+}
+}
     }
 
     // update the highest track id
@@ -179,6 +181,7 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         last_track_id = ff->track_id_vec_[ff->num_features_ - 1];
     }
 
+if(draw_bounding_rectangle){
 //Draw bounding area
   dRect(
         img,
@@ -186,7 +189,8 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         FEATURE_DETECTOR_VERTICAL_BORDER,
         image_width_ - 2 * FEATURE_DETECTOR_HORIZONTAL_BORDER,
         image_height_ - 2 * FEATURE_DETECTOR_VERTICAL_BORDER,
-	3);
+	draw_bounding_rectangle_thickness);
+}
 
     //Draw text on img
     std::string tPoints{ "Corners: " + std::to_string(ff->num_features_) };
@@ -200,6 +204,18 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
 // === DYNAMIC RECONFIG ===
 void VTrackNode::setDRVals(const vilib_ros::tracker_paramConfig& config, const bool& debug)
 {
+bool detectChanged{
+FRAME_IMAGE_PYRAMID_LEVELS != config.FRAME_IMAGE_PYRAMID_LEVELS ||
+ FEATURE_DETECTOR_CELL_SIZE_WIDTH != config.FEATURE_DETECTOR_CELL_SIZE_WIDTH ||
+    FEATURE_DETECTOR_CELL_SIZE_HEIGHT != config.FEATURE_DETECTOR_CELL_SIZE_HEIGHT ||
+    FEATURE_DETECTOR_MIN_LEVEL != config.FEATURE_DETECTOR_MIN_LEVEL ||
+    FEATURE_DETECTOR_MAX_LEVEL != config.FEATURE_DETECTOR_MAX_LEVEL ||
+    FEATURE_DETECTOR_HORIZONTAL_BORDER != config.FEATURE_DETECTOR_HORIZONTAL_BORDER ||
+    FEATURE_DETECTOR_VERTICAL_BORDER != config.FEATURE_DETECTOR_VERTICAL_BORDER ||
+    FEATURE_DETECTOR_FAST_EPISLON != (float)config.FEATURE_DETECTOR_FAST_EPISLON ||
+    FEATURE_DETECTOR_FAST_ARC_LENGTH != config.FEATURE_DETECTOR_FAST_ARC_LENGTH ||
+    FEATURE_DETECTOR_FAST_SCORE != (config.FEATURE_DETECTOR_FAST_SCORE ? vilib::MAX_THRESHOLD : vilib::SUM_OF_ABS_DIFF_ON_ARC)
+};
     // Frame options
     FRAME_IMAGE_PYRAMID_LEVELS = config.FRAME_IMAGE_PYRAMID_LEVELS;
     // Feature detection options
@@ -213,8 +229,19 @@ void VTrackNode::setDRVals(const vilib_ros::tracker_paramConfig& config, const b
     FEATURE_DETECTOR_FAST_EPISLON = (float)config.FEATURE_DETECTOR_FAST_EPISLON;
     FEATURE_DETECTOR_FAST_ARC_LENGTH = config.FEATURE_DETECTOR_FAST_ARC_LENGTH;
     FEATURE_DETECTOR_FAST_SCORE = (config.FEATURE_DETECTOR_FAST_SCORE ? vilib::MAX_THRESHOLD : vilib::SUM_OF_ABS_DIFF_ON_ARC);
-    //Reset detector
-    initialized_ = false;
+//Image publisher
+enableImgPublish=config.publish_img;
+//Graphics
+draw_features=config.draw_features;
+draw_features_thickness=config.draw_features_thickness;
+draw_features_text=config.draw_features_text;
+draw_bounding_rectangle=config.draw_bounding_rectangle;
+draw_bounding_rectangle_thickness=config.draw_bounding_rectangle_thickness;
+
+    if(detectChanged){
+    initialized_ = false;	//Reset detector
+}
+
     if (debug) {
         ROS_INFO("\nReconfigure Request:\n=== FRAME OPTIONS ===\n%d\n=== FEATURE DETECTION ===\n%d %d %d %d %d %d\n=== FAST PARAMETERS ===\n%f %d %d\n",
             config.FRAME_IMAGE_PYRAMID_LEVELS,
@@ -259,8 +286,9 @@ void VTrackNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
         ff = iTracker(gImg, image_width_, image_height_); //Feature detector (FAST) with grayscale img
 
         processImg(imagePtrRaw, ff, image_width_, image_height_); //Draw the feature point(s)on the img/vid
-
+if(enableImgPublish){
         pub_img(imagePtrRaw);
+}
     }
     catch (cv_bridge::Exception& e) {
         ROS_ERROR("Could not convert from '%s' to 'bgr16'.", imgp->encoding.c_str());
