@@ -51,6 +51,7 @@ void VFASTNode::pub_img(const cv_bridge::CvImagePtr& ipt)
 {
 //    sensor_msgs::ImagePtr msg{ cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg() };
     imgPub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg());
+ ipt->image.release();
 }
 
 void VFASTNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
@@ -201,7 +202,6 @@ std::lock_guard<std::mutex> lock(pimgMutex);
     drawText(img, 30, 30, tPoints);
 
     pub_img(img);
- img->image.release();
 }
 
 // === DYNAMIC RECONFIG ===

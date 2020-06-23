@@ -194,7 +194,7 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
 
     //Publish features
     ptsPub.publish(pt_msg);
-    img->image.release();
+
 }
 
 // === DYNAMIC RECONFIG ===
@@ -240,6 +240,7 @@ void VTrackNode::pub_img(const cv_bridge::CvImagePtr& ipt)
 {
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg();
     imgPub.publish(msg); //Publish image
+    ipt->image.release();
 }
 
 void VTrackNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
