@@ -51,9 +51,9 @@ public:
     void imgCallback(const sensor_msgs::ImageConstPtr& imgp); //Image Input callback
 
 private:
-
-    std::mutex pimgMutex;
-    ros::NodeHandle nh;		//Node handle
+    std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
+   // std::mutex pimgMutex;
+    ros::NodeHandle nh; //Node handle
     // Pub/Sub
     ros::Publisher ptsPub;
     image_transport::Publisher imgPub;
@@ -64,7 +64,7 @@ private:
 
     // === FEATURE DETECTOR ===
     bool init_{ false };
-    std::shared_ptr<vilib::DetectorBaseGPU> fDetector(const cv_bridge::CvImagePtr& imgpt, const int& image_width_, const int& image_height_); 
+    std::shared_ptr<vilib::DetectorBaseGPU> fDetector(const cv_bridge::CvImagePtr& imgpt, const int& image_width_, const int& image_height_);
     std::unordered_map<int, int> getPoints(const std::shared_ptr<vilib::DetectorBaseGPU>& detector_gpu_);
 
     // === GRAPHICS ===

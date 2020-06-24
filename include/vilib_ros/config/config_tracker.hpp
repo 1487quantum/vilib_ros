@@ -37,4 +37,4 @@ bool draw_features{true};
 int draw_features_thickness{2};
 bool draw_features_text{true};
 bool draw_bounding_rectangle{true};
-int draw_bounding_rectangle_thickness{3};
+int draw_bounding_rectangle_thickness{2};

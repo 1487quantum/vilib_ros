@@ -34,7 +34,7 @@ void VTrackNode::init()
     imgSub = it.subscribe("img_in", 1, &VTrackNode::imgCallback, this); //Sub
 
     ptsPub = nh.advertise<vilib_ros::keypt>("feature_pts", 1);
-    imgPub = it.advertise("img_out", 1);
+    imgPub = it.advertise("img_tracker_out", 1);
 
     startReconfig();
 }
@@ -165,7 +165,7 @@ void VTrackNode::processImg(const cv_bridge::CvImagePtr& img, const std::shared_
         pt_msg.points.push_back(pt);
 
         if (draw_features) {
-            dCircle(img, pt_x, pt_Y, track_color, SHIFT_BITS, draw_features_thickness); //Draw circle around feature
+            dCircle(img, pt_x, pt_y, track_color, SHIFT_BITS, draw_features_thickness); //Draw circle around feature
             if (draw_features_text) {
                 //Draw pt number
                 std::string ploc{ "P" + std::to_string(track_id) };
