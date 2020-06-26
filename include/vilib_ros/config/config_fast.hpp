@@ -34,3 +34,11 @@ int HORIZONTAL_BORDER{ 0 }; //Horizontal image detection padding (Act as clip of
 int VERTICAL_BORDER{ 0 }; //Vertical image detection padding
 int CELL_SIZE_WIDTH{ 16 };
 int CELL_SIZE_HEIGHT{ 16 };
+
+//Image publisher
+bool enableImgPublish{true};
+//Graphics
+bool draw_features{true};
+int draw_features_thickness{2};
+bool draw_bounding_rectangle{true};
+int draw_bounding_rectangle_thickness{2};

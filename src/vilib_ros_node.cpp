@@ -34,7 +34,7 @@ void VFASTNode::init()
     imgSub = it.subscribe("img_in", 1, &VFASTNode::imgCallback, this); //Sub
 
     ptsPub = nh.advertise<vilib_ros::keypt>("fast_pts", 1);
-    imgPub = it.advertise("img_out", 1);
+    imgPub = it.advertise("img_feature_out", 1);
 
     startReconfig();
 }
@@ -43,15 +43,15 @@ void VFASTNode::init()
 void VFASTNode::dr_callback(const vilib_ros::fast_paramConfig& config, const uint32_t& level)
 {
     setDRVals(config, false);
-//Reset GPU
-init_=false;
+    //Reset GPU
+    init_ = false;
 }
 
 void VFASTNode::pub_img(const cv_bridge::CvImagePtr& ipt)
 {
-//    sensor_msgs::ImagePtr msg{ cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg() };
+    //    sensor_msgs::ImagePtr msg{ cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg() };
     imgPub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg());
- ipt->image.release();
+    //ipt->image.release();
 }
 
 void VFASTNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
@@ -68,22 +68,23 @@ void VFASTNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
         int image_height_{ gImg->image.rows };
 
         pts = getPoints(fDetector(gImg, image_width_, image_height_)); //Feature detector (FAST) with grayscale img
-	gImg->image.release();
+        gImg->image.release();
 
-	const auto psimg_out = std::async(std::launch::async, &VFASTNode::processImg, this, imagePtrRaw, pts, image_width_, image_height_);
-        //processImg(imagePtrRaw, pts, image_width_, image_height_); //Draw the feature point(s)on the img/vid
-	
-        //pub_img(imagePtrRaw);
+        //const auto psimg_out = std::async(std::launch::async, &VFASTNode::processImg, this, imagePtrRaw, pts, image_width_, image_height_);
+        processImg(imagePtrRaw, pts, image_width_, image_height_); //Draw the feature point(s)on the img/vid
+        if (enableImgPublish) {
+            pub_img(imagePtrRaw);
+        }
     }
     catch (cv_bridge::Exception& e) {
         ROS_ERROR("Could not convert from '%s' to 'bgr16'.", imgp->encoding.c_str());
     }
 }
-std::shared_ptr<vilib::DetectorBaseGPU> detector_gpu_;
+
 std::shared_ptr<vilib::DetectorBaseGPU> VFASTNode::fDetector(const cv_bridge::CvImagePtr& imgpt, const int& image_width_, const int& image_height_)
 {
 
-//For pyramid storage
+    //For pyramid storage
     detector_gpu_.reset(new vilib::FASTGPU(image_width_,
         image_height_,
         CELL_SIZE_WIDTH,
@@ -96,17 +97,17 @@ std::shared_ptr<vilib::DetectorBaseGPU> VFASTNode::fDetector(const cv_bridge::Cv
         FAST_MIN_ARC_LENGTH,
         FAST_SCORE));
 
-if(!init_){
-    // Initialize the pyramid pool
-    vilib::PyramidPool::init(1,
-        image_width_,
-        image_height_,
-        1, // grayscale
-        PYRAMID_LEVELS,
-        IMAGE_PYRAMID_MEMORY_TYPE);
+    if (!init_) {
+        // Initialize the pyramid pool
+        vilib::PyramidPool::init(1,
+            image_width_,
+            image_height_,
+            1, // grayscale
+            PYRAMID_LEVELS,
+            IMAGE_PYRAMID_MEMORY_TYPE);
 
-init_=true;
-}
+        init_ = true;
+    }
 
     std::shared_ptr<vilib::Frame> frame0(new vilib::Frame(imgpt->image, 0, PYRAMID_LEVELS)); // Create a Frame (image upload, pyramid)
     detector_gpu_->reset(); // Reset detector's grid (Note: this step could be actually avoided with custom processing)
@@ -114,11 +115,12 @@ init_=true;
 
     vilib::PyramidPool::deinit(); // Deinitialize the pyramid pool
 
-return detector_gpu_;
+    return detector_gpu_;
 }
 
-std::unordered_map<int, int> VFASTNode::getPoints(const std::shared_ptr<vilib::DetectorBaseGPU>& detector_gpu_){
-  // Display results
+std::unordered_map<int, int> VFASTNode::getPoints(const std::shared_ptr<vilib::DetectorBaseGPU>& detector_gpu_)
+{
+    // Display results
     auto& points_gpu{ detector_gpu_->getPoints() };
     auto& points_gpu_grid{ detector_gpu_->getGrid() };
 
@@ -129,7 +131,7 @@ std::unordered_map<int, int> VFASTNode::getPoints(const std::shared_ptr<vilib::D
     for (auto it = points_gpu.begin(); it != points_gpu.end(); ++it) {
         int key = ((int)it->x_) | (((int)it->y_) << 16);
         if (key) {
-	//ROS_WARN_STREAM(it->x_<<","<<it->y_<<","<<it->score_<<","<<it->level_);
+            //ROS_WARN_STREAM(it->x_<<","<<it->y_<<","<<it->score_<<","<<it->level_);
             points_combined.emplace(key, 3);
         }
         ++pidx;
@@ -168,7 +170,7 @@ void VFASTNode::processImg(const cv_bridge::CvImagePtr& img, const std::unordere
     pt_msg.stamp = ros::Time::now();
     pt_msg.size = pts.size();
 
-std::lock_guard<std::mutex> lock(pimgMutex);
+   // std::lock_guard<std::mutex> lock(pimgMutex);
 
     // draw circles for the identified keypoints
     for (auto it = pts.begin(); it != pts.end(); ++it) {
@@ -181,22 +183,25 @@ std::lock_guard<std::mutex> lock(pimgMutex);
             pt.x = x;
             pt.y = y;
             pt_msg.points.push_back(pt);
-            //Draw the points
-            dCircle(img, x * 1024, y * 1024, 2);
+            if (draw_features) {
+                //Draw the points
+                dCircle(img, x * 1024, y * 1024, draw_features_thickness);
+            }
         }
     }
 
     ptsPub.publish(pt_msg); //Publish /feature_pts
 
- //Draw detection bounding area
-    dRect(
-        img,
-        HORIZONTAL_BORDER,
-        VERTICAL_BORDER,
-        image_width_ - 2 * HORIZONTAL_BORDER,
-        image_height_ - 2 * VERTICAL_BORDER,
-	2);
-
+    if (draw_bounding_rectangle) {
+        //Draw detection bounding area
+        dRect(
+            img,
+            HORIZONTAL_BORDER,
+            VERTICAL_BORDER,
+            image_width_ - 2 * HORIZONTAL_BORDER,
+            image_height_ - 2 * VERTICAL_BORDER,
+            draw_bounding_rectangle_thickness);
+    }
     //Draw text on img
     std::string tPoints{ "Corners: " + std::to_string(pts.size()) };
     drawText(img, 30, 30, tPoints);
@@ -208,9 +213,10 @@ std::lock_guard<std::mutex> lock(pimgMutex);
 void VFASTNode::setDRVals(const vilib_ros::fast_paramConfig& config, const bool& debug)
 {
     PYRAMID_LEVELS = config.PYRAMID_LEVELS; //Pyramid level
+    PYRAMID_MIN_LEVEL = config.PYRAMID_MIN_LEVELS;
     PYRAMID_MAX_LEVEL = PYRAMID_LEVELS;
-    FAST_SCORE = (config.FAST_SCORE ? vilib::MAX_THRESHOLD : vilib::SUM_OF_ABS_DIFF_ON_ARC);
 
+    FAST_SCORE = (config.FAST_SCORE ? vilib::MAX_THRESHOLD : vilib::SUM_OF_ABS_DIFF_ON_ARC);
     FAST_EPSILON = (float)config.FAST_EPSILON; //Threshold level
     FAST_MIN_ARC_LENGTH = config.FAST_MIN_ARC_LENGTH;
 
@@ -219,6 +225,14 @@ void VFASTNode::setDRVals(const vilib_ros::fast_paramConfig& config, const bool&
     VERTICAL_BORDER = config.VERTICAL_BORDER;
     CELL_SIZE_WIDTH = config.CELL_SIZE_WIDTH;
     CELL_SIZE_HEIGHT = config.CELL_SIZE_HEIGHT;
+
+    //Image publisher
+    enableImgPublish = config.publish_img;
+    //Graphics
+    draw_features = config.draw_features;
+    draw_features_thickness = config.draw_features_thickness;
+    draw_bounding_rectangle = config.draw_bounding_rectangle;
+    draw_bounding_rectangle_thickness = config.draw_bounding_rectangle_thickness;
 
     if (debug) {
         ROS_INFO("Reconfigure Request: %d %f %d", config.PYRAMID_LEVELS, config.FAST_EPSILON, config.FAST_SCORE);
@@ -239,12 +253,13 @@ int main(int argc, char** argv)
     VFASTNode vrf(nh);
     vrf.init();
 
+    ros::spin();
     //Start Multithreading Process(Async thread): http://wiki.ros.org/roscpp/Overview/Callbacks%20and%20Spinning
-    ros::AsyncSpinner spinner(4);
-    ros::Rate r(30); //Run at 30Hz
+    // ros::AsyncSpinner spinner(4);
+    // ros::Rate r(30); //Run at 30Hz
 
-    spinner.start();
-    ros::waitForShutdown();
+    // spinner.start();
+    //  ros::waitForShutdown();
 
     return 0;
 }

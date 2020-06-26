@@ -17,13 +17,10 @@
  * 
  */
 
-#include <iostream>
 #include <vector>
 #include <unordered_map>
-#include <thread>
 
 #include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/cudev/common.hpp>
 
@@ -76,8 +73,6 @@ private:
     void dRect(const cv_bridge::CvImagePtr& imgpt, const int& x, const int& y, const int& w, const int& h, const int& thickness); //Draw rect (bounding area)
     void processImg(const cv_bridge::CvImagePtr& img, const std::shared_ptr<vilib::Frame>& ff, const int& image_width_, const int& image_height_);
 
-    // === DYNAMIC RECONFIG ===
-    void setDRVals(const vilib_ros::tracker_paramConfig& config, const bool& debug);
     void startReconfig();
 };
 
