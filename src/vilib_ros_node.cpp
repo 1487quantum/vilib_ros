@@ -50,7 +50,7 @@ void VFASTNode::dr_callback(const vilib_ros::fast_paramConfig& config, const uin
 void VFASTNode::pub_img(const cv_bridge::CvImagePtr& ipt)
 {
     //    sensor_msgs::ImagePtr msg{ cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg() };
-    imgPub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg());
+    imgPub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", ipt->image).toImageMsg());
     //ipt->image.release();
 }
 
@@ -60,7 +60,7 @@ void VFASTNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
         std::unordered_map<int, int> pts; //Feature points detected
 
         //http://docs.ros.org/kinetic/api/sensor_msgs/html/image__encodings_8h_source.html
-        cv_bridge::CvImagePtr imagePtrRaw{ cv_bridge::toCvCopy(imgp, sensor_msgs::image_encodings::BGR16) };
+        cv_bridge::CvImagePtr imagePtrRaw{ cv_bridge::toCvCopy(imgp, sensor_msgs::image_encodings::BGR8) };
         cv_bridge::CvImagePtr gImg{ cv_bridge::toCvCopy(imgp, sensor_msgs::image_encodings::MONO8) }; //Create tmp img for detctor
 
         //Get image width & height
@@ -77,7 +77,7 @@ void VFASTNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
         }
     }
     catch (cv_bridge::Exception& e) {
-        ROS_ERROR("Could not convert from '%s' to 'bgr16'.", imgp->encoding.c_str());
+        ROS_ERROR("Could not convert from '%s' to 'bgr8'.", imgp->encoding.c_str());
     }
 }
 
