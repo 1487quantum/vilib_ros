@@ -249,7 +249,7 @@ void VTrackNode::dr_callback(const vilib_ros::tracker_paramConfig& config, const
 
 void VTrackNode::pub_img(const cv_bridge::CvImagePtr& ipt)
 {
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr16", ipt->image).toImageMsg();
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", ipt->image).toImageMsg();
     imgPub.publish(msg); //Publish image
     ipt->image.release();
 }
@@ -258,7 +258,7 @@ void VTrackNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
 {
     try {
         //http://docs.ros.org/kinetic/api/sensor_msgs/html/image__encodings_8h_source.html
-        cv_bridge::CvImagePtr imagePtrRaw{ cv_bridge::toCvCopy(imgp, sensor_msgs::image_encodings::BGR16) };
+        cv_bridge::CvImagePtr imagePtrRaw{ cv_bridge::toCvCopy(imgp, sensor_msgs::image_encodings::BGR8) };
         cv_bridge::CvImagePtr gImg{ cv_bridge::toCvCopy(imgp, sensor_msgs::image_encodings::MONO8) }; //Create tmp gray img for detctor
 
         //Get image width & height
@@ -275,7 +275,7 @@ void VTrackNode::imgCallback(const sensor_msgs::ImageConstPtr& imgp)
         }
     }
     catch (cv_bridge::Exception& e) {
-        ROS_ERROR("Could not convert from '%s' to 'bgr16'.", imgp->encoding.c_str());
+        ROS_ERROR("Could not convert from '%s' to 'bgr8'.", imgp->encoding.c_str());
     }
 }
 
