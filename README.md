@@ -100,10 +100,5 @@ if(NOT "include;/usr/local;/usr/local/opencv/include" STREQUAL " ")
 ```
 
 
-
-## Known Issue(s)
-- Ouput image does not render the correct color. (Appears black only)
-
-
 # License
 Licensed under the [MIT License](./LICENSE).
